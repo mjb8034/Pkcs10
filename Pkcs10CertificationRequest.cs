@@ -221,11 +221,11 @@ public sealed class Pkcs10CertificationRequest
     private static string ToHex(ReadOnlySpan<byte> data)
     {
         if (data.IsEmpty)
-            return string.Empty;
+            return String.Empty;
 
         int length = checked((data.Length * 3) - 1);
 
-        return string.Create(
+        return String.Create(
             length,
             data,
             static (destination, source) =>
@@ -329,16 +329,16 @@ public sealed class Pkcs10CertificationRequest
             sb.AppendLine("Subject Alternative Name:");
 
             if (san.DnsNames.Count > 0)
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  DNS: {string.Join(", ", san.DnsNames)}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  DNS: {String.Join(", ", san.DnsNames)}");
 
             if (san.IpAddresses.Count > 0)
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  IP: {string.Join(", ", san.IpAddresses)}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  IP: {String.Join(", ", san.IpAddresses)}");
 
             if (san.Emails.Count > 0)
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  Email: {string.Join(", ", san.Emails)}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  Email: {String.Join(", ", san.Emails)}");
 
             if (san.Uris.Count > 0)
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  URI: {string.Join(", ", san.Uris)}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  URI: {String.Join(", ", san.Uris)}");
 
             if (san.RegisteredIds.Count > 0)
             {
@@ -487,16 +487,16 @@ public sealed class Pkcs10CertificationRequest
                 sb.AppendLine(CultureInfo.InvariantCulture, $"                {FormatOid(ExtensionOids.SubjectAlternativeName, OidGroup.ExtensionOrAttribute)}:");
 
                 if (san.DnsNames.Count > 0)
-                    sb.AppendLine(CultureInfo.InvariantCulture, $"                    DNS:{string.Join(", ", san.DnsNames)}");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"                    DNS:{String.Join(", ", san.DnsNames)}");
 
                 if (san.IpAddresses.Count > 0)
-                    sb.AppendLine(CultureInfo.InvariantCulture, $"                    IP:{string.Join(", ", san.IpAddresses)}");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"                    IP:{String.Join(", ", san.IpAddresses)}");
 
                 if (san.Emails.Count > 0)
-                    sb.AppendLine(CultureInfo.InvariantCulture, $"                    Email:{string.Join(", ", san.Emails)}");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"                    Email:{String.Join(", ", san.Emails)}");
 
                 if (san.Uris.Count > 0)
-                    sb.AppendLine(CultureInfo.InvariantCulture, $"                    URI:{string.Join(", ", san.Uris)}");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"                    URI:{String.Join(", ", san.Uris)}");
 
                 if (san.RegisteredIds.Count > 0)
                 {
@@ -540,7 +540,7 @@ public sealed class Pkcs10CertificationRequest
     {
         string oidValue = oid.Value ?? throw new CryptographicException("OID does not contain a value.");
 
-        return string.IsNullOrEmpty(oid.FriendlyName)
+        return String.IsNullOrEmpty(oid.FriendlyName)
             ? $"({oidValue})"
             : $"{oid.FriendlyName} ({oidValue})";
     }

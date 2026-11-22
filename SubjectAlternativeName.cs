@@ -58,10 +58,10 @@ public sealed class SubjectAlternativeName(
     /// <inheritdoc/>
     public override string ToString()
     {
-        return $"DNS={string.Join(",", DnsNames)}; " +
-               $"IP={string.Join(",", IpAddresses)}; " +
-               $"Email={string.Join(",", Emails)}; " +
-               $"URI={string.Join(",", Uris)}; " +
-               $"RegisteredID={string.Join(",", RegisteredIds.Cast<Oid>().Select(oid => oid.Value))}";
+        return $"DNS={String.Join(",", DnsNames)}; " +
+               $"IP={String.Join(",", IpAddresses)}; " +
+               $"Email={String.Join(",", Emails)}; " +
+               $"URI={String.Join(",", Uris)}; " +
+               $"RegisteredID={String.Join(",", RegisteredIds.Cast<Oid>().Select(oid => oid.Value))}";
     }
 }

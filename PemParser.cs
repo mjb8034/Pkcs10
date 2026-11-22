@@ -3,20 +3,81 @@ using System.Text;
 
 namespace Pkcs10.Security.Cryptography.Pem;
 
+/// <summary>
+/// Represents a decoded Privacy-Enhanced Mail (PEM) block.
+/// </summary>
+/// <param name="Label">
+/// The label from the PEM BEGIN and END boundaries, such as
+/// <c>CERTIFICATE</c>, <c>CERTIFICATE REQUEST</c>, or
+/// <c>PRIVATE KEY</c>.
+/// </param>
+/// <param name="Data">
+/// The binary data obtained by Base64-decoding the contents of the PEM block.
+/// </param>
+/// <param name="BeginLine">
+/// The one-based line number containing the BEGIN boundary.
+/// </param>
+/// <param name="EndLine">
+/// The one-based line number containing the matching END boundary.
+/// </param>
 public sealed record PemBlock(
     string Label,
     ReadOnlyMemory<byte> Data,
     long BeginLine,
     long EndLine);
 
+/// <summary>
+/// Provides methods for detecting and parsing Privacy-Enhanced Mail (PEM)
+/// encoded data from streams and text readers.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The parser recognizes PEM blocks delimited by matching
+/// <c>-----BEGIN label-----</c> and <c>-----END label-----</c>
+/// boundaries and returns the Base64-decoded contents as
+/// <see cref="PemBlock"/> instances.
+/// </para>
+/// <para>
+/// Text outside PEM blocks is ignored. This permits PEM objects to be read
+/// from files that contain surrounding descriptive text, such as OpenSSL
+/// bag attributes, subject or issuer descriptions, comments, or other
+/// non-PEM content.
+/// </para>
+/// <para>
+/// After a BEGIN boundary is encountered, the corresponding PEM block is
+/// validated until its matching END boundary is encountered. Malformed
+/// boundaries, mismatched labels, nested BEGIN boundaries, invalid Base64
+/// data, oversized blocks, and unterminated blocks cause a
+/// <see cref="FormatException"/>.
+/// </para>
+/// <para>
+/// Multiple PEM blocks may be present in the same input.
+/// </para>
+/// </remarks>
 public static class PemParser
 {
     private const string BeginPrefix = "-----BEGIN ";
     private const string EndPrefix = "-----END ";
     private const string BoundarySuffix = "-----";
 
+    /// <summary>
+    /// Specifies the default maximum number of Base64 characters permitted
+    /// in a single PEM block.
+    /// </summary>
+    /// <value>
+    /// 16,777,216 characters (16 Mi characters).
+    /// </value>
+    /// <remarks>
+    /// The limit prevents unbounded accumulation of PEM payload data while
+    /// parsing. A different limit may be supplied to the parsing methods.
+    /// </remarks>
     public const int DefaultMaximumBlockCharacters = 16 * 1024 * 1024;
 
+    /// <summary>
+    /// Specifies the default maximum number of characters permitted in a
+    /// PEM label.
+    /// </summary>
+    /// <value>128 characters.</value>
     public const int DefaultMaximumLabelLength = 128;
 
     private sealed class ParserState
@@ -28,6 +89,46 @@ public static class PemParser
         public long BeginLine;
     }
 
+    /// <summary>
+    /// Determines whether a readable, seekable stream contains a PEM BEGIN
+    /// marker within a bounded number of bytes from the stream's current
+    /// position.
+    /// </summary>
+    /// <param name="stream">
+    /// The stream to examine.
+    /// </param>
+    /// <param name="maximumProbeLength">
+    /// The maximum number of bytes to examine. The default is 65,536 bytes.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> if the byte sequence
+    /// <c>-----BEGIN </c> is found within the examined portion of the
+    /// stream; otherwise, <see langword="false"/>.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// This method is a lightweight probe. Finding the BEGIN marker does
+    /// not guarantee that the stream contains a complete or valid PEM
+    /// block. Use <see cref="Parse(Stream, Encoding?, bool, int, int)"/>
+    /// to validate and decode the PEM data.
+    /// </para>
+    /// <para>
+    /// The stream position is restored to its original value before this
+    /// method returns, including when an exception occurs.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="stream"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="stream"/> is not readable.
+    /// </exception>
+    /// <exception cref="NotSupportedException">
+    /// <paramref name="stream"/> does not support seeking.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="maximumProbeLength"/> is less than or equal to zero.
+    /// </exception>
     public static bool IsPem(
         Stream stream,
         int maximumProbeLength = 64 * 1024)
@@ -108,11 +209,49 @@ public static class PemParser
         }
     }
 
-    /*
-     * Synchronous Stream entry point.
-     *
-     * The stream is disposed unless leaveOpen is true.
-     */
+    /// <summary>
+    /// Parses all PEM blocks from a readable stream.
+    /// </summary>
+    /// <param name="stream">
+    /// The stream containing PEM-encoded text.
+    /// </param>
+    /// <param name="encoding">
+    /// The text encoding used to read the stream. If
+    /// <see langword="null"/>, UTF-8 is used. Byte-order marks are detected
+    /// by the underlying <see cref="StreamReader"/>.
+    /// </param>
+    /// <param name="leaveOpen">
+    /// <see langword="true"/> to leave <paramref name="stream"/> open after
+    /// parsing; <see langword="false"/> to dispose it.
+    /// </param>
+    /// <param name="maximumBlockCharacters">
+    /// The maximum number of Base64 characters permitted in a single PEM
+    /// block.
+    /// </param>
+    /// <param name="maximumLabelLength">
+    /// The maximum number of characters permitted in a PEM label.
+    /// </param>
+    /// <returns>
+    /// A read-only list containing the decoded PEM blocks in the order in
+    /// which they occur in the input. The list is empty when no PEM blocks
+    /// are present.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="stream"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="stream"/> is not readable.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="maximumBlockCharacters"/> or
+    /// <paramref name="maximumLabelLength"/> is less than or equal to zero.
+    /// </exception>
+    /// <exception cref="FormatException">
+    /// The input contains a malformed PEM boundary, mismatched BEGIN and
+    /// END labels, a nested BEGIN boundary, an empty or oversized PEM
+    /// payload, invalid Base64 data, or a PEM block without a matching END
+    /// boundary.
+    /// </exception>
     public static IReadOnlyList<PemBlock> Parse(
         Stream stream,
         Encoding? encoding = null,
@@ -146,11 +285,40 @@ public static class PemParser
             maximumLabelLength);
     }
 
-    /*
-     * Synchronous TextReader entry point.
-     *
-     * The caller retains ownership of the TextReader.
-     */
+    /// <summary>
+    /// Parses all PEM blocks from a text reader.
+    /// </summary>
+    /// <param name="reader">
+    /// The text reader containing PEM-encoded text.
+    /// </param>
+    /// <param name="maximumBlockCharacters">
+    /// The maximum number of Base64 characters permitted in a single PEM
+    /// block.
+    /// </param>
+    /// <param name="maximumLabelLength">
+    /// The maximum number of characters permitted in a PEM label.
+    /// </param>
+    /// <returns>
+    /// A read-only list containing the decoded PEM blocks in input order.
+    /// The list is empty when no PEM blocks are present.
+    /// </returns>
+    /// <remarks>
+    /// This method does not dispose <paramref name="reader"/>. The caller
+    /// retains ownership of the reader.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="reader"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="maximumBlockCharacters"/> or
+    /// <paramref name="maximumLabelLength"/> is less than or equal to zero.
+    /// </exception>
+    /// <exception cref="FormatException">
+    /// The input contains a malformed PEM boundary, mismatched BEGIN and
+    /// END labels, a nested BEGIN boundary, an empty or oversized PEM
+    /// payload, invalid Base64 data, or a PEM block without a matching END
+    /// boundary.
+    /// </exception>
     public static IReadOnlyList<PemBlock> Parse(
         TextReader reader,
         int maximumBlockCharacters = DefaultMaximumBlockCharacters,
@@ -180,11 +348,53 @@ public static class PemParser
         return blocks;
     }
 
-    /*
-     * Asynchronous Stream entry point.
-     *
-     * The stream is disposed unless leaveOpen is true.
-     */
+    /// <summary>
+    /// Asynchronously parses all PEM blocks from a readable stream.
+    /// </summary>
+    /// <param name="stream">
+    /// The stream containing PEM-encoded text.
+    /// </param>
+    /// <param name="encoding">
+    /// The text encoding used to read the stream. If
+    /// <see langword="null"/>, UTF-8 is used. Byte-order marks are detected
+    /// by the underlying <see cref="StreamReader"/>.
+    /// </param>
+    /// <param name="leaveOpen">
+    /// <see langword="true"/> to leave <paramref name="stream"/> open after
+    /// parsing; <see langword="false"/> to dispose it.
+    /// </param>
+    /// <param name="maximumBlockCharacters">
+    /// The maximum number of Base64 characters permitted in a single PEM
+    /// block.
+    /// </param>
+    /// <param name="maximumLabelLength">
+    /// The maximum number of characters permitted in a PEM label.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// A token that can be used to cancel the asynchronous operation.
+    /// </param>
+    /// <returns>
+    /// A task whose result is a read-only list containing the decoded PEM
+    /// blocks in input order. The list is empty when no PEM blocks are
+    /// present.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="stream"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="stream"/> is not readable.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="maximumBlockCharacters"/> or
+    /// <paramref name="maximumLabelLength"/> is less than or equal to zero.
+    /// </exception>
+    /// <exception cref="FormatException">
+    /// The input contains invalid PEM data.
+    /// </exception>
+    /// <exception cref="OperationCanceledException">
+    /// The operation is canceled through
+    /// <paramref name="cancellationToken"/>.
+    /// </exception>
     public static async Task<IReadOnlyList<PemBlock>> ParseAsync(
         Stream stream,
         Encoding? encoding = null,
@@ -225,11 +435,45 @@ public static class PemParser
             .ConfigureAwait(false);
     }
 
-    /*
-     * Asynchronous TextReader entry point.
-     *
-     * The caller retains ownership of the TextReader.
-     */
+    /// <summary>
+    /// Asynchronously parses all PEM blocks from a text reader.
+    /// </summary>
+    /// <param name="reader">
+    /// The text reader containing PEM-encoded text.
+    /// </param>
+    /// <param name="maximumBlockCharacters">
+    /// The maximum number of Base64 characters permitted in a single PEM
+    /// block.
+    /// </param>
+    /// <param name="maximumLabelLength">
+    /// The maximum number of characters permitted in a PEM label.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// A token that can be used to cancel the asynchronous operation.
+    /// </param>
+    /// <returns>
+    /// A task whose result is a read-only list containing the decoded PEM
+    /// blocks in input order. The list is empty when no PEM blocks are
+    /// present.
+    /// </returns>
+    /// <remarks>
+    /// This method does not dispose <paramref name="reader"/>. The caller
+    /// retains ownership of the reader.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="reader"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="maximumBlockCharacters"/> or
+    /// <paramref name="maximumLabelLength"/> is less than or equal to zero.
+    /// </exception>
+    /// <exception cref="FormatException">
+    /// The input contains invalid PEM data.
+    /// </exception>
+    /// <exception cref="OperationCanceledException">
+    /// The operation is canceled through
+    /// <paramref name="cancellationToken"/>.
+    /// </exception>
     public static async Task<IReadOnlyList<PemBlock>> ParseAsync(
         TextReader reader,
         int maximumBlockCharacters =
@@ -344,7 +588,7 @@ public static class PemParser
                     "BEGIN boundary.");
             }
 
-            if (!string.Equals(
+            if (!String.Equals(
                     state.Label,
                     endLabel,
                     StringComparison.Ordinal))
@@ -439,7 +683,7 @@ public static class PemParser
         out string label,
         out string? error)
     {
-        label = string.Empty;
+        label = String.Empty;
         error = null;
 
         ReadOnlySpan<char> prefixSpan =
