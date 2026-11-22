@@ -8,6 +8,8 @@
 
 		<PackageId>Pkcs10</PackageId>
 		<Version>1.0.0.1</Version>
+		<AssemblyVersion>1.0.0.0</AssemblyVersion>
+		<FileVersion>1.0.0.1</FileVersion>
 
 		<Title>PKCS #10 for .NET</Title>
 		<Authors>Matthew J. Bobowski</Authors>
