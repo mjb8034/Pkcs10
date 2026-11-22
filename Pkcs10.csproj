@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+		<LangVersion>14.0</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AnalysisMode>all</AnalysisMode>
@@ -36,9 +37,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<None Update="README.md"
+		<None Remove="README.md" />
+		<None Include="README.md"
           Pack="true"
-          PackagePath="\" />
+          PackagePath="" />
 	</ItemGroup>
 
 </Project>

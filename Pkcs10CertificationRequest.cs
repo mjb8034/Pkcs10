@@ -211,9 +211,11 @@ public sealed class Pkcs10CertificationRequest
             AlgorithmOids.EcdsaWithSha256 => (HashAlgorithmName.SHA256, null),
             AlgorithmOids.EcdsaWithSha384 => (HashAlgorithmName.SHA384, null),
             AlgorithmOids.EcdsaWithSha512 => (HashAlgorithmName.SHA512, null),
+#if NET10_0_OR_GREATER
             AlgorithmOids.MLDsa44 or
             AlgorithmOids.MLDsa65 or
             AlgorithmOids.MLDsa87 => (default, null),
+#endif
             _ => throw new NotSupportedException($"Unsupported signature algorithm OID: {signatureAlgorithm.Value}")
         };
     }
@@ -221,33 +223,26 @@ public sealed class Pkcs10CertificationRequest
     private static string ToHex(ReadOnlySpan<byte> data)
     {
         if (data.IsEmpty)
-            return String.Empty;
+            return string.Empty;
 
-        int length = checked((data.Length * 3) - 1);
+        char[] characters = new char[checked((data.Length * 3) - 1)];
 
-        return String.Create(
-            length,
-            data,
-            static (destination, source) =>
-            {
-                const string HexDigits = "0123456789ABCDEF";
+        const string HexDigits = "0123456789ABCDEF";
 
-                int position = 0;
+        int position = 0;
 
-                for (int i = 0; i < source.Length; i++)
-                {
-                    if (0 != i)
-                    {
-                        destination[position++] = ':';
-                    }
+        for (int i = 0; i < data.Length; i++)
+        {
+            if (i != 0)
+                characters[position++] = ':';
 
-                    byte value = source[i];
+            byte value = data[i];
 
-                    destination[position++] = HexDigits[value >> 4];
-                    destination[position++] = HexDigits[value & 0x0F];
-                }
-            }
-        );
+            characters[position++] = HexDigits[value >> 4];
+            characters[position++] = HexDigits[value & 0x0F];
+        }
+
+        return new string(characters);
     }
 
     /// <summary>
@@ -301,6 +296,7 @@ public sealed class Pkcs10CertificationRequest
                 sb.AppendLine("  Type: EC");
                 sb.AppendLine(CultureInfo.InvariantCulture, $"  Key Size: {ec.KeySize} bits");
             }
+#if NET10_0_OR_GREATER
             else if (AlgorithmOids.IsMLDsa(Request.PublicKey.Oid.Value))
             {
 #pragma warning disable SYSLIB5006 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
@@ -309,6 +305,7 @@ public sealed class Pkcs10CertificationRequest
                 sb.AppendLine(CultureInfo.InvariantCulture, $"  Key Size: {mlDsa.Algorithm.PublicKeySizeInBytes} bytes");
 #pragma warning restore SYSLIB5006 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             }
+#endif
         }
         catch (Exception ex) when (ex is
             CryptographicException or
@@ -458,6 +455,7 @@ public sealed class Pkcs10CertificationRequest
                 sb.AppendLine(CultureInfo.InvariantCulture, $"            ASN1 OID: {curveOid}");
                 sb.AppendLine(CultureInfo.InvariantCulture, $"            NIST Curve: {curveName}");
             }
+#if NET10_0_OR_GREATER
             else if (AlgorithmOids.IsMLDsa(Request.PublicKey.Oid.Value))
             {
 #pragma warning disable SYSLIB5006 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
@@ -466,6 +464,7 @@ public sealed class Pkcs10CertificationRequest
                 sb.AppendLine(CultureInfo.InvariantCulture, $"            Public-Key Value: {ToHex(Request.PublicKey.EncodedKeyValue.RawData)}");
 #pragma warning restore SYSLIB5006 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             }
+#endif
         }
         catch (Exception ex) when (ex is
             CryptographicException or
