@@ -24,7 +24,7 @@ A native .NET library for parsing, validating, inspecting, and formatting PKCS #
 
 ## Requirements
 
-- .NET 8.0 or later.
+- .NET 7.0 or later.
 - ML-DSA support requires .NET 10.0 or later.
 
 ## Installation

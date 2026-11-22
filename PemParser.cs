@@ -137,19 +137,18 @@ public static class PemParser
 
         if (!stream.CanRead)
         {
-            throw new ArgumentException(
-                "The stream must be readable.",
-                nameof(stream));
+            throw new ArgumentException("The stream must be readable.", nameof(stream));
         }
 
         if (!stream.CanSeek)
         {
-            throw new NotSupportedException(
-                "PEM probing requires a seekable stream.");
+            throw new NotSupportedException("PEM probing requires a seekable stream.");
         }
 
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumProbeLength);
-
+        if (maximumProbeLength <= 0)
+        {
+            ThrowIfNegativeOrZero(maximumProbeLength, nameof(maximumProbeLength));
+        }
         ReadOnlySpan<byte> marker = "-----BEGIN "u8;
 
         long position = stream.Position;
@@ -894,8 +893,21 @@ public static class PemParser
 
     private static void ValidateLimits(int maximumBlockCharacters, int maximumLabelLength)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumBlockCharacters);
+        ThrowIfNegativeOrZero(maximumBlockCharacters, nameof(maximumBlockCharacters));
+        ThrowIfNegativeOrZero(maximumLabelLength, nameof(maximumLabelLength));
+    }
 
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumLabelLength);
+    private static void ThrowIfNegativeOrZero(int value, string parameterName)
+    {
+#if NET8_0_OR_GREATER
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, parameterName);
+#else
+#pragma warning disable CA1512 // ThrowIfNegativeOrZero is unavailable before .NET 8.
+    if (value <= 0)
+    {
+        throw new ArgumentOutOfRangeException(parameterName);
+    }
+#pragma warning restore CA1512
+#endif
     }
 }
