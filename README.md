@@ -1,4 +1,10 @@
+<div align="center">
+
 # Pkcs10
+
+[![NuGet](https://img.shields.io/nuget/v/Pkcs10.svg?label=NuGet)](https://www.nuget.org/packages/Pkcs10)
+
+</div>
 
 A native .NET library for parsing, validating, inspecting, and formatting PKCS #10 certificate signing requests (CSRs) using `System.Security.Cryptography` types.
 
@@ -10,7 +16,7 @@ A native .NET library for parsing, validating, inspecting, and formatting PKCS #
 - Exposes the signature algorithm, signature, and signature-algorithm parameters.
 - Supports RSA PKCS #1 v1.5 with SHA-256, SHA-384, and SHA-512.
 - Supports ECDSA with SHA-224, SHA-256, SHA-384, and SHA-512.
-- Provides experimental support for ML-DSA-44, ML-DSA-65, and ML-DSA-87.
+- Provides experimental support for ML-DSA-44, ML-DSA-65, and ML-DSA-87 on .NET 10.0 or later.
 - Provides convenient access to requested Subject Alternative Name (SAN) and Extended Key Usage (EKU) extensions.
 - Supports application-defined OIDs while preserving caller-supplied `Oid` instances and friendly names.
 - Provides convenient `OidCollection.Contains` extensions.
@@ -18,7 +24,8 @@ A native .NET library for parsing, validating, inspecting, and formatting PKCS #
 
 ## Requirements
 
-- .NET 10.0 or later
+- .NET 8.0 or later.
+- ML-DSA support requires .NET 10.0 or later.
 
 ## Installation
 
@@ -181,7 +188,7 @@ The PKCS #10 parser currently supports:
 |---|---|
 | RSA PKCS #1 v1.5 | SHA-256, SHA-384, SHA-512 |
 | ECDSA | SHA-224, SHA-256, SHA-384, SHA-512 |
-| ML-DSA | ML-DSA-44, ML-DSA-65, ML-DSA-87 |
+| ML-DSA (.NET 10.0+) | ML-DSA-44, ML-DSA-65, ML-DSA-87 |
 
 ML-DSA support is experimental.
 
