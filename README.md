@@ -214,6 +214,10 @@ Parsed requests expose standard .NET types such as:
 
 This keeps application code interoperable with `System.Security.Cryptography` without introducing a separate cryptographic object model.
 
+## Revision History
+
+See the [version history](CHANGELOG.md) for release details.
+
 ## License
 
 Pkcs10 is licensed under the MIT License. See [LICENSE](LICENSE).
