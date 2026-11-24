@@ -232,10 +232,10 @@ This keeps application code interoperable with `System.Security.Cryptography` wi
 
 ## Revision History
 
-See the [version history](CHANGELOG.md) for release details.
+See the [version history](https://github.com/mjb8034/Pkcs10/blob/main/CHANGELOG.md) for release details.
 
 ## License
 
-Pkcs10 is licensed under the MIT License. See [LICENSE](LICENSE).
+Pkcs10 is licensed under the MIT License. See [LICENSE](https://github.com/mjb8034/Pkcs10/blob/main/LICENSE).
 
 Copyright © 2026 Matthew J. Bobowski.
