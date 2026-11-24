@@ -1,3 +1,5 @@
 <Solution>
-  <Project Path="Pkcs10.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/Pkcs10/Pkcs10.csproj" />
+  </Folder>
 </Solution>
