@@ -19,7 +19,7 @@ A native .NET library for parsing, validating, inspecting, and formatting PKCS #
 - Provides experimental support for ML-DSA-44, ML-DSA-65, and ML-DSA-87 on .NET 10.0 or later.
 - Provides convenient access to requested Subject Alternative Name (SAN) and Extended Key Usage (EKU) extensions.
 - Supports application-defined OIDs while preserving caller-supplied `Oid` instances and friendly names.
-- Provides convenient `OidCollection.Contains` extensions.
+- Provides convenient `OidCollection.Contains` extensions with optional wildcard subtree matching.
 - Produces text, JSON, compact, and OpenSSL-style diagnostic summaries.
 
 ## Requirements
@@ -145,8 +145,7 @@ Applications can supply known OIDs when parsing a request. When a matching OID i
 ```csharp
 using System.Security.Cryptography;
 
-Oid deviceType =
-    new("1.3.6.1.4.1.99999.1.1", "Example Device Type");
+Oid deviceType = new("1.3.6.1.4.1.99999.1.1", "Example Device Type");
 
 OidCollection knownOids = [deviceType];
 
@@ -156,14 +155,28 @@ csr = Pkcs10CertificationRequest.FromDer(csrData, knownOids);
 The same collection can be supplied when decoding registered IDs in a Subject Alternative Name:
 
 ```csharp
-var san = csr.Request.SubjectAlternativeName?
-    .ToSubjectAlternativeName(knownOids);
+var san = csr.Request.SubjectAlternativeName?.ToSubjectAlternativeName(knownOids);
 
-if (san?.RegisteredIds.Contains(deviceType) == true)
+if (san?.RegisteredIds.Contains(deviceType) is true)
 {
     Console.WriteLine("Example Device Type requested");
 }
 ```
+
+`OidCollection.Contains` performs exact OID value matching by default. Subtree matching can be enabled explicitly with `OidMatchMode.Wildcard`:
+
+```csharp
+if (san?.RegisteredIds.Contains(new Oid("1.3.6.1.4.1.99999.1.*", "Example Device Types"), OidMatchMode.Wildcard) is true)
+{
+    Console.WriteLine("Example device type requested");
+}
+```
+
+The wildcard must be the complete final OID node. It matches all descendants, but does not match the parent OID itself.
+
+For example, `1.2.3.*` matches `1.2.3.4`, `1.2.3.999`, and `1.2.3.4.5`. It does not match `1.2.3` or `1.2.30.4`.
+
+Wildcard syntax is interpreted only when `OidMatchMode.Wildcard` is explicitly specified. The existing `Contains` overloads continue to perform exact OID value matching.
 
 The `1.3.6.1.4.1.99999` enterprise number used above is illustrative only. Use OIDs assigned to your organization or application.
 
