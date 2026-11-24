@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Pkcs10/Pkcs10.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Pkcs10.Tests/Pkcs10.Tests.csproj" />
+  </Folder>
+</Solution>
