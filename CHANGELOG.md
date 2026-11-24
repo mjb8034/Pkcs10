@@ -1,5 +1,10 @@
 # Revision History
 
+## 1.0.1
+
+- Added optional wildcard subtree matching to the `OidCollection.Contains` extensions.
+- Preserved exact OID matching as the default behavior.
+
 ## 1.0.0.3
 
 - Added support for .NET 7.0.

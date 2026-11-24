@@ -44,6 +44,11 @@
 		<None Include="../../README.md"
           Pack="true"
           PackagePath="" />
+
+		<None Remove="CHANGELOG.md" />
+		<None Include="../../CHANGELOG.md"
+          Pack="true"
+          PackagePath="" />
 	</ItemGroup>
 
 </Project>
