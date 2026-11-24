@@ -3,6 +3,7 @@
 # Pkcs10
 
 [![NuGet](https://img.shields.io/nuget/v/Pkcs10.svg?label=NuGet)](https://www.nuget.org/packages/Pkcs10)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
 
