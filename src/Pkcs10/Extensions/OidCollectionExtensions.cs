@@ -90,6 +90,7 @@ public static class OidCollectionExtensions
     /// </exception>
     public static bool Contains(this OidCollection collection, Oid oid, OidMatchMode matchMode)
     {
+        ArgumentNullException.ThrowIfNull(collection);
         ArgumentNullException.ThrowIfNull(oid);
         ArgumentNullException.ThrowIfNull(oid.Value);
         return Contains(collection, oid.Value, matchMode);
