@@ -1,5 +1,9 @@
 # Revision History
 
+## 1.0.1.1
+
+- Added support for .NET 11.0.
+
 ## 1.0.1
 
 - Added optional wildcard subtree matching to the `OidCollection.Contains` extensions.
