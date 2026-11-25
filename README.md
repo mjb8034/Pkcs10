@@ -3,6 +3,7 @@
 # Pkcs10
 
 [![NuGet](https://img.shields.io/nuget/v/Pkcs10.svg?label=NuGet)](https://www.nuget.org/packages/Pkcs10)
+![.NET](https://img.shields.io/badge/.NET-7.0%20%7C%208.0%20%7C%209.0%20%7C%2010.0%20%7C%2011.0-512BD4)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/mjb8034/Pkcs10/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mjb8034/Pkcs10/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/mjb8034/Pkcs10/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/mjb8034/Pkcs10/actions/workflows/codeql.yml)
@@ -10,6 +11,12 @@
 </div>
 
 A native .NET library for parsing, validating, inspecting, and formatting PKCS #10 certificate signing requests (CSRs) using `System.Security.Cryptography` types.
+
+## Why use Pkcs10?
+
+Pkcs10 turns PKCS #10 certificate signing requests into familiar .NET cryptography objects.
+
+Rather than introducing a separate cryptographic object model, Pkcs10 works with standard `System.Security.Cryptography` types such as `CertificateRequest`, `Oid`, `OidCollection`, and X.509 extensions. This makes it easier to add CSR handling to existing .NET applications while continuing to use the platform's native cryptographic APIs.
 
 ## Features
 

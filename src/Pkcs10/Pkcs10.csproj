@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
+		<TargetFrameworks>net7.0;net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
 		<LangVersion>14.0</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AnalysisMode>all</AnalysisMode>
 
 		<PackageId>Pkcs10</PackageId>
-		<Version>1.0.1.0</Version>
-		<AssemblyVersion>1.0.0.0</AssemblyVersion>
-		<FileVersion>1.0.1.0</FileVersion>
+		<Version>1.0.1.1</Version>
+		<AssemblyVersion>1.0.1.0</AssemblyVersion>
+		<FileVersion>1.0.1.1</FileVersion>
 
 		<!-- Ensure Package compatibility -->
 		<EnablePackageValidation>true</EnablePackageValidation>
