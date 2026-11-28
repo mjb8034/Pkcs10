@@ -902,12 +902,10 @@ public static class PemParser
 #if NET8_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value, parameterName);
 #else
-#pragma warning disable CA1512 // ThrowIfNegativeOrZero is unavailable before .NET 8.
     if (value <= 0)
     {
         throw new ArgumentOutOfRangeException(parameterName);
     }
-#pragma warning restore CA1512
 #endif
     }
 }

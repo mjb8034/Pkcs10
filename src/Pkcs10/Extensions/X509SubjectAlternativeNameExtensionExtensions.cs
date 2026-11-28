@@ -80,8 +80,9 @@ public static class X509SubjectAlternativeNameExtensionExtensions
                     emails.Add(
                         generalNames.ReadCharacterString(
                             UniversalTagNumber.IA5String,
-                            Rfc822NameTag));
-
+                            Rfc822NameTag
+                        )
+                    );
                 }
                 else if (tag.HasSameClassAndValue(DnsNameTag))
                 {   // DNS is decoded by X509SubjectAlternativeNameExtension.
@@ -92,8 +93,9 @@ public static class X509SubjectAlternativeNameExtensionExtensions
                     uris.Add(
                         generalNames.ReadCharacterString(
                             UniversalTagNumber.IA5String,
-                            UriTag));
-
+                            UriTag
+                        )
+                    );
                 }
                 else if (tag.HasSameClassAndValue(IpAddressTag))
                 {   // IP is decoded by X509SubjectAlternativeNameExtension.
@@ -109,8 +111,7 @@ public static class X509SubjectAlternativeNameExtensionExtensions
                     throw new CryptographicException($"The Subject Alternative Name contains unsupported " + $"GeneralName tag [{tag.TagValue}].");
                 }
                 else
-                {
-                    // Consume the complete unsupported GeneralName TLV.
+                {   // Consume the complete unsupported GeneralName TLV.
                     generalNames.ReadEncodedValue();
                 }
                 nameCount++;

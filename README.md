@@ -24,11 +24,13 @@ Rather than introducing a separate cryptographic object model, Pkcs10 works with
 - Provides a streaming PEM parser for decoding PEM-encoded cryptographic objects.
 - Validates the request and exposes it as a standard .NET `CertificateRequest`.
 - Exposes the signature algorithm, signature, and signature-algorithm parameters.
-- Supports RSA PKCS #1 v1.5 with SHA-256, SHA-384, and SHA-512.
+- Supports RSA PKCS #1 v1.5 with SHA-1, SHA-224, SHA-256, SHA-384, SHA-512, SHA-512/224, and SHA-512/256.
+- Supports RSA-PSS with parameter-aware validation.
 - Supports ECDSA with SHA-224, SHA-256, SHA-384, and SHA-512.
 - Provides experimental support for ML-DSA-44, ML-DSA-65, and ML-DSA-87 on .NET 10.0 or later.
 - Provides convenient access to requested Subject Alternative Name (SAN) and Extended Key Usage (EKU) extensions.
 - Supports application-defined OIDs while preserving caller-supplied `Oid` instances and friendly names.
+- Provides public OID constants for recognized public-key, hash, mask-generation, and signature algorithms.
 - Provides convenient `OidCollection.Contains` extensions with optional wildcard subtree matching.
 - Produces text, JSON, compact, and OpenSSL-style diagnostic summaries.
 
@@ -36,6 +38,7 @@ Rather than introducing a separate cryptographic object model, Pkcs10 works with
 
 - .NET 7.0 or later.
 - ML-DSA support requires .NET 10.0 or later.
+- Availability of individual cryptographic algorithms may additionally depend on the platform and underlying .NET cryptography provider.
 
 ## Installation
 
@@ -190,6 +193,20 @@ Wildcard syntax is interpreted only when `OidMatchMode.Wildcard` is explicitly s
 
 The `1.3.6.1.4.1.99999` enterprise number used above is illustrative only. Use OIDs assigned to your organization or application.
 
+## Signature Information
+
+Pkcs10 preserves the PKCS #10 signature information separately from the native `CertificateRequest` representation:
+
+```csharp
+Console.WriteLine(csr.SignatureAlgorithm.Value);
+
+ReadOnlyMemory<byte> signature = csr.Signature;
+
+ReadOnlyMemory<byte>? parameters = csr.SignatureAlgorithmParameters;
+```
+
+`SignatureAlgorithmParameters` contains the original DER-encoded `AlgorithmIdentifier` parameters when present. These parameters describe the signature configuration encoded in the request for parameterized signature algorithms such as RSA-PSS.
+
 ## Diagnostic Formatting
 
 A parsed request can be rendered in several diagnostic formats:
@@ -209,19 +226,58 @@ The PKCS #10 parser currently supports:
 
 | Key/signature family | Supported algorithms |
 |---|---|
-| RSA PKCS #1 v1.5 | SHA-256, SHA-384, SHA-512 |
+| RSA PKCS #1 v1.5 | SHA-1, SHA-224, SHA-256, SHA-384, SHA-512, SHA-512/224, SHA-512/256 |
+| RSA-PSS | Parameter-dependent; see below |
 | ECDSA | SHA-224, SHA-256, SHA-384, SHA-512 |
 | ML-DSA (.NET 10.0+) | ML-DSA-44, ML-DSA-65, ML-DSA-87 |
 
 ML-DSA support is experimental.
 
+### RSA-PSS
+
+RSA-PSS signature parameters are decoded from the request's `AlgorithmIdentifier`.
+
+Supported RSA-PSS configurations require:
+
+- MGF1 as the mask generation algorithm.
+- The MGF1 hash to match the message hash.
+- The salt length to equal the message-hash output length.
+- Trailer field `1`.
+
+Support for an individual hash algorithm may depend on the target framework, platform, and underlying .NET cryptography provider.
+
+## Algorithm OIDs
+
+`Pkcs10.Security.Cryptography.AlgorithmOids` provides constants for cryptographic algorithm identifiers recognized by the library, including:
+
+- RSA and elliptic-curve public-key algorithms
+- SHA-1, SHA-2, SHA-512/224, SHA-512/256, and fixed-length SHA-3 hashes
+- MGF1
+- RSASSA-PSS
+- RSA PKCS #1 v1.5 signature algorithms
+- ECDSA signature algorithms
+- ML-DSA-44, ML-DSA-65, and ML-DSA-87
+
+For example:
+
+```csharp
+using Pkcs10.Security.Cryptography;
+
+if (csr.SignatureAlgorithm.Value == AlgorithmOids.RsaPss)
+{
+    Console.WriteLine("RSA-PSS request");
+}
+```
+
+The OID catalog identifies algorithms recognized by Pkcs10. Availability of a particular cryptographic operation may additionally depend on the target framework, platform, and underlying .NET cryptography provider.
+
 ## Validation and Error Handling
 
 Parsing validates the structure and cryptographic validity of the PKCS #10 request.
 
-Unsupported signature algorithms throw `NotSupportedException`.
+Unsupported signature algorithms and configurations throw `NotSupportedException`.
 
-Malformed, invalid, or cryptographically invalid requests throw `CryptographicException`.
+Malformed requests, invalid signature encodings or signature-algorithm parameters, trailing data, and requests that fail cryptographic validation throw `CryptographicException`.
 
 ## Design
 
@@ -230,12 +286,16 @@ Pkcs10 is designed as a high-level PKCS #10 layer over the modern .NET cryptogra
 Parsed requests expose standard .NET types such as:
 
 - `CertificateRequest`
+- `PublicKey`
 - `Oid` and `OidCollection`
 - `X509Extension`
 - `X509SubjectAlternativeNameExtension`
+- `X509EnhancedKeyUsageExtension`
 - `IPAddress`
 
-This keeps application code interoperable with `System.Security.Cryptography` without introducing a separate cryptographic object model.
+Signature validation is delegated to the native .NET `CertificateRequest` loading path while Pkcs10 preserves the outer PKCS #10 signature metadata needed for inspection and parameter-aware algorithms.
+
+The native .NET object model remains the core design of the project, while the wrapper preserves `SignatureAlgorithm`, `Signature`, and `SignatureAlgorithmParameters`. This keeps application code interoperable with `System.Security.Cryptography` without introducing a separate cryptographic object model.
 
 ## Revision History
 

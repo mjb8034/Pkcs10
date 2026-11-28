@@ -103,9 +103,17 @@ public sealed class Pkcs10CertificationRequest
     /// The parsed PKCS #10 certification request.
     /// </returns>
     /// <remarks>
-    /// Supported signature algorithms: SHA-256, SHA-384, and SHA-512
-    /// with RSA PKCS #1 v1.5; ECDSA with SHA-224, SHA-256, SHA-384, and
-    /// SHA-512; and ML-DSA-44, ML-DSA-65, and ML-DSA-87.
+    /// Supported signature algorithms include RSA PKCS #1 v1.5,
+    /// RSA-PSS, ECDSA, and, on supported target frameworks and
+    /// platforms, ML-DSA.
+    ///
+    /// RSA-PSS parameters are decoded before the request is loaded.
+    /// Supported RSA-PSS configurations require the MGF1 hash to match the message hash,
+    /// the salt length to equal the hash output length,
+    /// and the trailer field to be 1.
+    /// 
+    /// Support for a particular hash algorithm may additionally
+    /// depend on the underlying .NET cryptography provider.
     /// 
     /// When an OID resolved by this class or its convenience views has the same value as an
     /// OID supplied in <paramref name="knownOids"/>, the supplied <see cref="Oid"/>
@@ -123,11 +131,12 @@ public sealed class Pkcs10CertificationRequest
     /// <see cref="Oid"/> instances.
     /// </remarks>
     /// <exception cref="NotSupportedException">
-    /// The certification request uses an unsupported signature algorithm.
+    /// The certification request uses an unsupported signature algorithm or an unsupported signature algorithm configuration.
     /// </exception>
     /// <exception cref="CryptographicException">
     /// The certification request is malformed, contains trailing data,
-    /// contains an invalid signature encoding, or fails cryptographic validation.
+    /// contains an invalid signature encoding or invalid signature algorithm
+    /// parameters, or fails cryptographic validation.
     /// </exception>
     public static Pkcs10CertificationRequest FromDer(ReadOnlyMemory<byte> der, OidCollection? knownOids = default)
     {
@@ -146,10 +155,9 @@ public sealed class Pkcs10CertificationRequest
             // CertificateRequest.LoadSigningRequest parses and validates this.
             requestSequence.ReadEncodedValue();
 
-            // Signature
+            // Signature Algorithm
             ReadOnlyMemory<byte>? signatureAlgorithmParameters = null;
 
-            // signatureAlgorithm
             var signatureAlgorithmSequence = requestSequence.ReadSequence();
             Oid signatureAlgorithm = ResolveOid(signatureAlgorithmSequence.ReadObjectIdentifier(), knownOids);
             if (signatureAlgorithmSequence.HasData)
@@ -169,7 +177,7 @@ public sealed class Pkcs10CertificationRequest
             }
             requestSequence.ThrowIfNotEmpty();
 
-            var signingConfiguration = GetSigningConfiguration(signatureAlgorithm);
+            var signingConfiguration = GetSigningConfiguration(signatureAlgorithm, signatureAlgorithmParameters);
 
             var request = CertificateRequest.LoadSigningRequest(
                 der.Span,
@@ -199,14 +207,98 @@ public sealed class Pkcs10CertificationRequest
         }
     }
 
-    private static (HashAlgorithmName HashAlgorithmName, RSASignaturePadding? RSASignaturePadding) GetSigningConfiguration(Oid signatureAlgorithm)
+    private static (HashAlgorithmName HashAlgorithmName, RSASignaturePadding RSASignaturePadding) GetRsaPssSigningConfiguration(ReadOnlyMemory<byte> encodedParameters)
     {
+        RsaPssParameters parameters = RsaPssParametersDecoder.Decode(encodedParameters);
+
+        if (parameters.HashAlgorithm != parameters.MgfHashAlgorithm)
+        {
+            throw new NotSupportedException("RSA-PSS with an MGF1 hash that differs from the message hash is not supported.");
+        }
+
+        int expectedSaltLength = GetHashSizeInBytes(parameters.HashAlgorithm);
+        if (parameters.SaltLength != expectedSaltLength)
+        {
+            throw new NotSupportedException($"RSA-PSS salt length {parameters.SaltLength} is not supported. The salt length must equal the hash output length of {expectedSaltLength} bytes.");
+        }
+        if (parameters.TrailerField != 1)
+        {
+            throw new NotSupportedException("Only RSA-PSS trailer field 1 is supported.");
+        }
+
+        return (parameters.HashAlgorithm, RSASignaturePadding.Pss);
+    }
+
+    private static int GetHashSizeInBytes(
+        HashAlgorithmName hashAlgorithm)
+    {
+        if (HashAlgorithmName.SHA1 == hashAlgorithm)
+            return SHA1.HashSizeInBytes;
+
+        if (HashAlgorithmName.SHA256 == hashAlgorithm)
+            return SHA256.HashSizeInBytes;
+
+        if (HashAlgorithmName.SHA384 == hashAlgorithm)
+            return SHA384.HashSizeInBytes;
+
+        if (HashAlgorithmName.SHA512 == hashAlgorithm)
+            return SHA512.HashSizeInBytes;
+
+#if NET8_0_OR_GREATER
+        if (HashAlgorithmName.SHA3_256 == hashAlgorithm)
+            return SHA3_256.HashSizeInBytes;
+
+        if (HashAlgorithmName.SHA3_384 == hashAlgorithm)
+            return SHA3_384.HashSizeInBytes;
+
+        if (HashAlgorithmName.SHA3_512 == hashAlgorithm)
+            return SHA3_512.HashSizeInBytes;
+#else
+        if (new HashAlgorithmName("SHA3-256") == hashAlgorithm)
+            return 32;
+
+        if (new HashAlgorithmName("SHA3-384") == hashAlgorithm)
+            return 48;
+
+        if (new HashAlgorithmName("SHA3-512") == hashAlgorithm)
+            return 64;
+#endif
+
+        // Algorithms for which the target BCL has no concrete hash class.
+        return hashAlgorithm.Name switch
+        {
+            "SHA224" => 28,
+            "SHA512/224" => 28,
+            "SHA512/256" => 32,
+            "SHA3-224" => 28,
+
+            _ => throw new NotSupportedException(
+                $"Unsupported RSA-PSS hash algorithm: {hashAlgorithm.Name}")
+        };
+    }
+
+    private static (HashAlgorithmName HashAlgorithmName, RSASignaturePadding? RSASignaturePadding) GetSigningConfiguration(Oid signatureAlgorithm, ReadOnlyMemory<byte>? signatureAlgorithmParameters)
+    {
+        if (AlgorithmOids.RsaPss == signatureAlgorithm.Value)
+        {
+            if (signatureAlgorithmParameters is null)
+            {
+                throw new CryptographicException("RSA-PSS signature algorithm parameters are missing.");
+            }
+
+            return GetRsaPssSigningConfiguration(signatureAlgorithmParameters.Value);
+        }
+
         // Map algorithm OID to crypto
         return signatureAlgorithm.Value switch
         {
+            AlgorithmOids.Sha1WithRsaEncryption => (HashAlgorithmName.SHA1, RSASignaturePadding.Pkcs1),
+            AlgorithmOids.Sha224WithRsaEncryption => (new HashAlgorithmName("SHA224"), RSASignaturePadding.Pkcs1),
             AlgorithmOids.Sha256WithRsaEncryption => (HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1),
             AlgorithmOids.Sha384WithRsaEncryption => (HashAlgorithmName.SHA384, RSASignaturePadding.Pkcs1),
             AlgorithmOids.Sha512WithRsaEncryption => (HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1),
+            AlgorithmOids.Sha512_224WithRsaEncryption => (new HashAlgorithmName("SHA512/224"), RSASignaturePadding.Pkcs1),
+            AlgorithmOids.Sha512_256WithRsaEncryption => (new HashAlgorithmName("SHA512/256"), RSASignaturePadding.Pkcs1),
             AlgorithmOids.EcdsaWithSha224 => (new HashAlgorithmName("SHA224"), null),
             AlgorithmOids.EcdsaWithSha256 => (HashAlgorithmName.SHA256, null),
             AlgorithmOids.EcdsaWithSha384 => (HashAlgorithmName.SHA384, null),
@@ -284,28 +376,13 @@ public sealed class Pkcs10CertificationRequest
 
         try
         {
-            if (Request.PublicKey.Oid.Value == AlgorithmOids.RsaEncryption)
+            var publicKey = GetPublicKeyInfo();
+
+            sb.AppendLine(CultureInfo.InvariantCulture, $"  Type: {publicKey.Type}");
+            if (publicKey.KeySize is int keySize)
             {
-                using var rsa = Request.PublicKey.GetRSAPublicKey() ?? throw new CryptographicException("The CSR does not contain an RSA public key.");
-                sb.AppendLine("  Type: RSA");
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  Key Size: {rsa.KeySize} bits");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  Key Size: {keySize} bits");
             }
-            else if (Request.PublicKey.Oid.Value == AlgorithmOids.EcPublicKey)
-            {
-                using var ec = Request.PublicKey.GetECDsaPublicKey() ?? throw new CryptographicException("The CSR does not contain an ECDSA public key.");
-                sb.AppendLine("  Type: EC");
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  Key Size: {ec.KeySize} bits");
-            }
-#if NET10_0_OR_GREATER
-            else if (AlgorithmOids.IsMLDsa(Request.PublicKey.Oid.Value))
-            {
-#pragma warning disable SYSLIB5006 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-                using var mlDsa = Request.PublicKey.GetMLDsaPublicKey() ?? throw new CryptographicException("The CSR does not contain an ML-DSA public key.");
-                sb.AppendLine("  Type: ML-DSA");
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  Key Size: {mlDsa.Algorithm.PublicKeySizeInBytes} bytes");
-#pragma warning restore SYSLIB5006 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-            }
-#endif
         }
         catch (Exception ex) when (ex is
             CryptographicException or
@@ -364,6 +441,7 @@ public sealed class Pkcs10CertificationRequest
 
     private string ToJsonSummary()
     {
+        var publicKey = GetPublicKeyInfo();
         var san = Request.SubjectAlternativeName?.ToSubjectAlternativeName(_knownOids);
         var obj = new
         {
@@ -371,16 +449,8 @@ public sealed class Pkcs10CertificationRequest
             PublicKey = new
             {
                 AlgorithmOid = Request.PublicKey.Oid.Value,
-                KeyType = Request.PublicKey.Oid.Value switch
-                {
-                    AlgorithmOids.RsaEncryption => "RSA",
-                    AlgorithmOids.EcPublicKey => "EC",
-                    AlgorithmOids.MLDsa44 or
-                    AlgorithmOids.MLDsa65 or
-                    AlgorithmOids.MLDsa87 => "ML-DSA",
-                    _ => "Unknown"
-                },
-                KeySize = GetPublicKeySize(),
+                KeyType = publicKey.Type,
+                KeySize = publicKey.KeySize,
             },
             SignatureAlgorithmOid = SignatureAlgorithm.Value,
             SAN = san is null ? null : new
@@ -395,28 +465,6 @@ public sealed class Pkcs10CertificationRequest
         };
 
         return JsonSerializer.Serialize(obj, JsonSummaryOptions);
-    }
-
-    private int? GetPublicKeySize()
-    {
-        return Request.PublicKey.Oid.Value switch
-        {
-            AlgorithmOids.RsaEncryption => GetRsaKeySize(),
-            AlgorithmOids.EcPublicKey => GetEcKeySize(),
-            _ => null
-        };
-
-        int GetRsaKeySize()
-        {
-            using var rsa = Request.PublicKey.GetRSAPublicKey() ?? throw new CryptographicException("The CSR does not contain an RSA public key.");
-            return rsa.KeySize;
-        }
-
-        int GetEcKeySize()
-        {
-            using var ec = Request.PublicKey.GetECDsaPublicKey() ?? throw new CryptographicException("The CSR does not contain an ECDSA public key.");
-            return ec.KeySize;
-        }
     }
 
     private string ToCompactSummary()
@@ -437,34 +485,23 @@ public sealed class Pkcs10CertificationRequest
 
         try
         {
-            if (Request.PublicKey.Oid.Value == AlgorithmOids.RsaEncryption)
+            var publicKey = GetPublicKeyInfo();
+            sb.Append(CultureInfo.InvariantCulture, $"            {publicKey.Type} Public-Key:");
+            if (publicKey.KeySize is not null)
             {
-                using var rsa = Request.PublicKey.GetRSAPublicKey() ?? throw new CryptographicException("The CSR does not contain an RSA public key.");
-                sb.AppendLine(CultureInfo.InvariantCulture, $"            RSA Public-Key: ({rsa.KeySize} bit)");
-                sb.AppendLine(CultureInfo.InvariantCulture, $"            pub: {ToHex(Request.PublicKey.EncodedKeyValue.RawData)}");
+                sb.Append(CultureInfo.InvariantCulture, $" ({publicKey.KeySize} bit)");
             }
-            else if (Request.PublicKey.Oid.Value == AlgorithmOids.EcPublicKey)
+            sb.AppendLine();
+            sb.AppendLine(CultureInfo.InvariantCulture, $"            Public-Key Value: {ToHex(publicKey.Value.Span)}");
+            if ("EC" == publicKey.Type)
             {
                 using var ec = Request.PublicKey.GetECDsaPublicKey() ?? throw new CryptographicException("The CSR does not contain an ECDSA public key.");
-                sb.AppendLine(CultureInfo.InvariantCulture, $"            EC Public-Key: ({ec.KeySize} bit)");
                 var parameters = ec.ExportParameters(false);
                 string curveOid = parameters.Curve.Oid.Value ?? "Unknown";
                 string curveName = parameters.Curve.Oid.FriendlyName ?? "Unknown";
-
-                sb.AppendLine(CultureInfo.InvariantCulture, $"            Public-Key Value: {ToHex(Request.PublicKey.EncodedKeyValue.RawData)}");
                 sb.AppendLine(CultureInfo.InvariantCulture, $"            ASN1 OID: {curveOid}");
                 sb.AppendLine(CultureInfo.InvariantCulture, $"            NIST Curve: {curveName}");
             }
-#if NET10_0_OR_GREATER
-            else if (AlgorithmOids.IsMLDsa(Request.PublicKey.Oid.Value))
-            {
-#pragma warning disable SYSLIB5006 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-                using var mlDsa = Request.PublicKey.GetMLDsaPublicKey() ?? throw new CryptographicException("The CSR does not contain an ML-DSA public key.");
-                sb.AppendLine(CultureInfo.InvariantCulture, $"            ML-DSA Public Key: ({mlDsa.Algorithm.Name})");
-                sb.AppendLine(CultureInfo.InvariantCulture, $"            Public-Key Value: {ToHex(Request.PublicKey.EncodedKeyValue.RawData)}");
-#pragma warning restore SYSLIB5006 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-            }
-#endif
         }
         catch (Exception ex) when (ex is
             CryptographicException or
@@ -537,10 +574,71 @@ public sealed class Pkcs10CertificationRequest
 
     private static string FormatOid(Oid oid)
     {
-        string oidValue = oid.Value ?? throw new CryptographicException("OID does not contain a value.");
+        string oidValue = oid.Value ??
+            throw new CryptographicException("OID does not contain a value.");
 
         return String.IsNullOrEmpty(oid.FriendlyName)
             ? $"({oidValue})"
             : $"{oid.FriendlyName} ({oidValue})";
+    }
+
+    private (
+        string Type,
+        int? KeySize,
+        ReadOnlyMemory<byte> Value
+    )
+    GetPublicKeyInfo()
+    {
+        string? oidValue = Request.PublicKey.Oid.Value;
+
+        if (AlgorithmOids.IsRsa(oidValue))
+        {
+            using var rsa = Request.PublicKey.GetRSAPublicKey() ??
+                throw new CryptographicException("The CSR does not contain an RSA public key.");
+
+            return (
+                "RSA",
+                rsa.KeySize,
+                Request.PublicKey.EncodedKeyValue.RawData
+            );
+        }
+
+        if (AlgorithmOids.EcPublicKey == oidValue)
+        {
+            using var ec = Request.PublicKey.GetECDsaPublicKey() ??
+                throw new CryptographicException("The CSR does not contain an ECDSA public key.");
+
+            return (
+                "EC",
+                ec.KeySize,
+                Request.PublicKey.EncodedKeyValue.RawData
+            );
+        }
+
+#if NET10_0_OR_GREATER
+        if (AlgorithmOids.IsMLDsa(oidValue))
+        {
+#if NET10_0
+#pragma warning disable SYSLIB5006
+#endif
+            using var mlDsa = Request.PublicKey.GetMLDsaPublicKey() ??
+                throw new CryptographicException("The CSR does not contain an ML-DSA public key.");
+
+            return (
+                "ML-DSA",
+                null,
+                Request.PublicKey.EncodedKeyValue.RawData
+            );
+
+#if NET10_0
+#pragma warning restore SYSLIB5006
+#endif
+        }
+#endif
+
+        return (
+            "Unknown",
+            null,
+            Request.PublicKey.EncodedKeyValue.RawData);
     }
 }

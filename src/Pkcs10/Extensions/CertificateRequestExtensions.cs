@@ -7,7 +7,6 @@ namespace Pkcs10.Security.Cryptography.X509Certificates;
 /// Provides extension members for accessing X.509 extensions
 /// requested by a <see cref="CertificateRequest"/>.
 /// </summary>
-[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "The .NET SDK has a documented issue where C# 14 extension members are incorrectly interpreted by the analyzer as nested types.")]
 public static class CertificateRequestExtensions
 {
     extension(CertificateRequest request)

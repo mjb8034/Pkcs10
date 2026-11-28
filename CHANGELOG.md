@@ -1,5 +1,20 @@
 # Revision History
 
+## 1.0.2
+
+### Added
+
+- Support for validating RSA-PSS signed PKCS #10 certification requests.
+- Support for RSA PKCS #1 v1.5 signatures using SHA-1, SHA-224,
+  SHA-512/224, and SHA-512/256.
+- Public algorithm OID constants for the newly recognized hash,
+  RSA signature, RSA-PSS, and MGF1 identifiers.
+
+### Changed
+
+- RSA public keys using the RSASSA-PSS algorithm identifier are now
+  recognized as RSA keys in request summaries.
+
 ## 1.0.1.1
 
 - Added support for .NET 11.0.
